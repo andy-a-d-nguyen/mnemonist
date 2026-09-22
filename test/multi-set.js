@@ -88,11 +88,19 @@ describe('MultiSet', function() {
     set.add('hello');
     set.add('world');
 
-    set.delete('hello');
+    assert.strictEqual(set.delete('hello'), true);
 
     assert.strictEqual(set.size, 1);
     assert.strictEqual(set.dimension, 1);
     assert.strictEqual(set.multiplicity('hello'), 0);
+
+    assert.strictEqual(set.delete('hello'), false);
+    assert.strictEqual(set.size, 1);
+    assert.strictEqual(set.dimension, 1);
+
+    assert.strictEqual(set.delete('world'), true);
+    assert.strictEqual(set.size, 0);
+    assert.strictEqual(set.dimension, 0);
   });
 
   it('should be possible to remove an arbitrary number of an item from the set.', function() {
@@ -309,6 +317,52 @@ describe('MultiSet', function() {
     var top = set.top(1);
 
     assert.deepStrictEqual(top, [['i', 7]]);
+  });
+
+  it('should clamp the number of top items to the dimension (issue #177).', function() {
+    var set = new MultiSet(),
+        count = 4294967296;
+
+    set.add('a', count);
+    set.add('b', 2);
+    set.add('c');
+
+    assert.deepStrictEqual(set.top(count), [['a', count], ['b', 2], ['c', 1]]);
+    assert.strictEqual(set.size, count + 3);
+    assert.strictEqual(set.dimension, 3);
+  });
+
+  it('should return no top items from an empty set.', function() {
+    var set = new MultiSet();
+
+    assert.deepStrictEqual(set.top(1), []);
+    assert.deepStrictEqual(set.top(4294967296), []);
+  });
+
+  it('should reject invalid top counts.', function() {
+    [new MultiSet(), MultiSet.from('a')].forEach(function(set) {
+      [undefined, null, '2', 0, -1].forEach(function(count) {
+        assert.throws(function() {
+          set.top(count);
+        }, /n must be a number > 0/);
+      });
+    });
+  });
+
+  it('should retrieve top items after deleting an absent key.', function() {
+    var set = MultiSet.from('aaabbc'),
+        empty = new MultiSet();
+
+    assert.strictEqual(set.delete('missing'), false);
+    assert.strictEqual(empty.delete('missing'), false);
+
+    assert.strictEqual(set.size, 6);
+    assert.strictEqual(set.dimension, 3);
+    assert.strictEqual(empty.size, 0);
+    assert.strictEqual(empty.dimension, 0);
+
+    assert.deepStrictEqual(set.top(3), [['a', 3], ['b', 2], ['c', 1]]);
+    assert.deepStrictEqual(empty.top(1), []);
   });
 
   it('size should remain consistent (issue #197).', function() {
